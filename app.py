@@ -2,12 +2,16 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from config import Config
 from models import db, Entry
 import datetime
+import logging
+import os
+
+logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
 
-# Create DB tables on first run
+# Ensure DB file exists
 with app.app_context():
     db.create_all()
 
@@ -21,11 +25,11 @@ def add_entry():
     name = request.form.get("name")
     email = request.form.get("email")
     message = request.form.get("message")
-    
+
     if not name or not email or not message:
         flash("All fields are required!", "danger")
         return redirect(url_for("home"))
-    
+
     entry = Entry(name=name, email=email, message=message)
     db.session.add(entry)
     db.session.commit()
@@ -44,5 +48,6 @@ def api_entries():
 def health():
     return jsonify({"status": "healthy"}), 200
 
+# Remove debug=True for EB
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
