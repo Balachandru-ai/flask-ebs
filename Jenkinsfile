@@ -13,16 +13,16 @@ pipeline {
             steps {
                 sh '''
                 python3 -m venv venv
-                source venv/bin/activate
-                pip install -r requirements.txt
+                ./venv/bin/pip install -r requirements.txt
                 '''
             }
         }
 
-        stage('Run App') {
+        stage('Restart App') {
             steps {
                 sh '''
-                nohup python3 app.py > output.log 2>&1 &
+                pkill -f gunicorn || true
+                nohup ./venv/bin/gunicorn app:app --bind 0.0.0.0:5000 > app.log 2>&1 &
                 '''
             }
         }
