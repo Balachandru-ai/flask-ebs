@@ -141,9 +141,6 @@ pipeline {
                 sh '''
                     echo "Switching traffic to Green..."
 
-                    sudo sed -i \
-                    's/server 127.0.0.1:8003 weight=[0-9]*;/server 127.0.0.1:8003 weight=0;/' \
-                    /etc/nginx/nginx.conf
 
                     sudo sed -i \
                     's/server 127.0.0.1:8004 weight=[0-9]*;/server 127.0.0.1:8004 weight=100;/' \
