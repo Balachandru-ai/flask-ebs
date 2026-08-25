@@ -1,5 +1,5 @@
 pipeline {
-    deploy
+    agent any
 
     environment {
         AWS_REGION       = 'eu-north-1'
@@ -22,7 +22,6 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo 'Checking out source code...'
                 checkout scm
             }
         }
@@ -37,8 +36,6 @@ pipeline {
 
         stage('Code Analysis') {
             steps {
-                echo 'Running basic Python code check...'
-
                 sh '''
                     python3 -m py_compile app.py
                 '''
@@ -48,8 +45,6 @@ pipeline {
         stage('Docker Build') {
             steps {
                 sh '''
-                    echo "Building Docker image..."
-
                     docker build \
                         -t ${IMAGE_NAME}:${IMAGE_TAG} \
                         -t ${IMAGE_NAME}:latest \
@@ -61,8 +56,6 @@ pipeline {
         stage('Docker Image Scan') {
             steps {
                 sh '''
-                    echo "Scanning Docker image..."
-
                     trivy image \
                         --severity HIGH,CRITICAL \
                         --exit-code 1 \
@@ -74,8 +67,6 @@ pipeline {
         stage('Login to ECR') {
             steps {
                 sh '''
-                    echo "Logging in to Amazon ECR..."
-
                     aws ecr get-login-password \
                         --region ${AWS_REGION} | \
                     docker login \
@@ -88,8 +79,6 @@ pipeline {
         stage('Push Image to ECR') {
             steps {
                 sh '''
-                    echo "Pushing Docker image to ECR..."
-
                     docker tag \
                         ${IMAGE_NAME}:${IMAGE_TAG} \
                         ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
@@ -110,10 +99,12 @@ pipeline {
         stage('Deploy Green') {
             steps {
                 sh '''
-                    echo "Deploying new version to Green..."
+                    echo "Stopping old Green container..."
 
                     docker stop ${GREEN_CONTAINER} || true
                     docker rm ${GREEN_CONTAINER} || true
+
+                    echo "Starting new Green container..."
 
                     docker run -d \
                         --name ${GREEN_CONTAINER} \
@@ -122,7 +113,6 @@ pipeline {
 
                     sleep 10
 
-                    echo "Checking Green container..."
                     docker ps | grep ${GREEN_CONTAINER}
                 '''
             }
@@ -131,15 +121,15 @@ pipeline {
         stage('Green Health Check') {
             steps {
                 sh '''
-                    echo "Running Green health check..."
+                    echo "Checking Green application..."
 
                     curl -f http://localhost:${GREEN_PORT}/ || {
-                        echo "Green deployment failed!"
+                        echo "Green health check failed!"
                         docker logs ${GREEN_CONTAINER}
                         exit 1
                     }
 
-                    echo "Green deployment is healthy."
+                    echo "Green application is healthy."
                 '''
             }
         }
@@ -183,41 +173,20 @@ pipeline {
     post {
 
         success {
-            echo '''
-            ==========================================
-            DEPLOYMENT SUCCESSFUL
-            ==========================================
-            Image: ${IMAGE_NAME}:${IMAGE_TAG}
-            Green: ${GREEN_CONTAINER}
-            Port:  ${GREEN_PORT}
-            Traffic: Green 100%
-            ==========================================
-            '''
+            echo 'Deployment completed successfully!'
         }
 
         failure {
-            echo '''
-            ==========================================
-            DEPLOYMENT FAILED
-            ==========================================
-            Checking running containers...
-            ==========================================
-            '''
+            echo 'Deployment failed!'
 
             sh '''
                 docker ps -a
-            '''
-
-            sh '''
                 docker logs ${GREEN_CONTAINER} || true
             '''
         }
 
         always {
-            sh '''
-                echo "Docker images:"
-                docker images ${IMAGE_NAME}
-            '''
+            echo 'Pipeline execution completed.'
         }
     }
 }
