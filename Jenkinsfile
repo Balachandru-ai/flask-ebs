@@ -1,5 +1,7 @@
 pipeline {
-    agent any
+    agent {
+        lable 'deploy'
+    }
 
     environment {
         AWS_REGION       = 'eu-north-1'
